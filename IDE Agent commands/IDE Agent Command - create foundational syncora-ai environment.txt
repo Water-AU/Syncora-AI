@@ -1,0 +1,7 @@
+Act as an expert Flutter software architect. We are setting up the base infrastructure and a design system palette dashboard using Dart. 
+
+Execute the following sequence exactly:
+1. Create a global theme token registry at `lib/core/theme/syncora_themes.dart` containing data structures for our 4 visual profiles (Executive Dark, Nordic Light, Cybernetic Matrix, Serene Focus).
+2. Implement the state management infrastructure to allow dynamic theme switching across the entire widget tree using a clean BLoC architecture.
+3. Create an internal utility screen at `lib/features/palette/presentation/pages/palette_dashboard_page.dart`. This screen must display a clean, scrollable layout organized by rows: 'Buttons', 'Tiles', 'Gauges', and 'Widgets'.
+4. Configure `main.dart` to launch directly into this Palette Dashboard for development verification. Ensure everything compiles cleanly.
