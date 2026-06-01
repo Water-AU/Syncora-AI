@@ -10,10 +10,17 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:syncora_ai/main.dart';
 
+import 'package:syncora_ai/core/theme/syncora_theme.dart';
+import 'package:syncora_ai/core/audience/syncora_audience.dart';
+
 void main() {
   testWidgets('Counter increments smoke test', (WidgetTester tester) async {
     // Build our app and trigger a frame.
-    await tester.pumpWidget(const SyncoraApp());
+    await tester.pumpWidget(const SyncoraApp(
+      initialThemeProfile: ThemeProfile.executiveDark,
+      initialDuration: Duration(milliseconds: 600),
+      initialAudience: AudienceProfile.whiteCollar,
+    ));
 
     // Verify that our counter starts at 0.
     expect(find.text('0'), findsOneWidget);
