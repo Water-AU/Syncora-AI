@@ -11,11 +11,13 @@ class AnalyticsState {
   final int totalRecords;
   final double sessionAverage;
   final double heartRateAverage;
+  final List<Map<String, dynamic>> rawLogs;
 
   const AnalyticsState({
     required this.totalRecords,
     required this.sessionAverage,
     required this.heartRateAverage,
+    required this.rawLogs,
   });
 
   factory AnalyticsState.initial() {
@@ -23,6 +25,7 @@ class AnalyticsState {
       totalRecords: 0,
       sessionAverage: 0.0,
       heartRateAverage: 0.0,
+      rawLogs: [],
     );
   }
 }
@@ -31,10 +34,12 @@ class AnalyticsBloc extends Bloc<AnalyticsEvent, AnalyticsState> {
   AnalyticsBloc() : super(AnalyticsState.initial()) {
     on<RefreshAnalytics>((event, emit) async {
       final aggregates = await DatabaseService.instance.getHistoricalAggregates();
+      final rawLogs = await DatabaseService.instance.getRawTelemetryLogs();
       emit(AnalyticsState(
         totalRecords: aggregates['total_records'] as int? ?? 0,
         sessionAverage: aggregates['average_metric'] as double? ?? 0.0,
         heartRateAverage: aggregates['average_hr'] as double? ?? 0.0,
+        rawLogs: rawLogs,
       ));
     });
 

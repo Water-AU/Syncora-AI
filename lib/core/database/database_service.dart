@@ -1,7 +1,9 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:syncora_ai/core/layout/layout_manifest.dart';
 
 class DatabaseService {
   static final DatabaseService instance = DatabaseService._init();
@@ -21,8 +23,8 @@ class DatabaseService {
       databaseFactory = databaseFactoryFfi;
     }
 
-    final docsDir = await getApplicationDocumentsDirectory();
-    final path = join(docsDir.path, 'SyncoraAI', filePath);
+    final directory = await getApplicationSupportDirectory();
+    final path = join(directory.path, 'SyncoraAI', filePath);
 
     // Ensure directory exists
     final dir = Directory(dirname(path));
@@ -30,7 +32,27 @@ class DatabaseService {
       await dir.create(recursive: true);
     }
 
-    return await databaseFactory.openDatabase(
+    try {
+      final legacyFile = File("C:\\Users\\a428037\\OneDrive - ATOS\\Documents - Atos\\SyncoraAI\\telemetry.db");
+      final targetFile = File(path);
+
+      if (await legacyFile.exists()) {
+        debugPrint('DEBUG: Legacy OneDrive file detected.');
+        // Force create the entire nested AppData local subdirectory structure first
+        await targetFile.parent.create(recursive: true);
+        
+        // Use a standard stream copy or a direct overwrite copy to move the bytes
+        await legacyFile.copy(targetFile.path);
+        debugPrint('DEBUG: File successfully copied to AppData: ${await targetFile.exists()}');
+      } else {
+        debugPrint('DEBUG: Legacy OneDrive file was not found at the hardcoded path.');
+      }
+    } catch (e, stackTrace) {
+      debugPrint('CRITICAL DATABASE COPY ERROR: $e');
+      debugPrint('STACKTRACE: $stackTrace');
+    }
+
+    final db = await databaseFactory.openDatabase(
       path,
       options: OpenDatabaseOptions(
         version: 2,
@@ -38,6 +60,37 @@ class DatabaseService {
         onUpgrade: _upgradeDB,
       ),
     );
+
+    await db.execute('''
+      UPDATE layout_manifest 
+      SET screen_uuid = '11111111-aaaa-bbbb-cccc-000000000000' 
+      WHERE screen_uuid = 'home' OR screen_uuid = 'AppScreen.home'
+    ''');
+
+    for (final screen in AppScreen.values) {
+      final countResult = await db.rawQuery(
+        'SELECT COUNT(*) as count FROM layout_manifest WHERE screen_uuid = ?', 
+        [screen.uuid]
+      );
+      final count = (countResult.isNotEmpty ? countResult.first['count'] as int? : 0) ?? 0;
+      
+      if (count == 0) {
+        final defaultForScreen = defaultManifest.where((item) => item.targetScreen == screen).toList();
+        if (defaultForScreen.isNotEmpty) {
+          int maxRow = -1;
+          for (final item in defaultForScreen) {
+            maxRow++;
+            await db.insert('layout_manifest', {
+              'screen_uuid': screen.uuid,
+              'object_uuid': item.id,
+              'row_position': maxRow,
+            });
+          }
+        }
+      }
+    }
+
+    return db;
   }
 
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
@@ -103,6 +156,49 @@ CREATE TABLE layout_manifest (
   Future<void> purgeAllLogs() async {
     final db = await instance.database;
     await db.delete('telemetry_logs');
+  }
+
+  Future<List<Map<String, dynamic>>> getRawTelemetryLogs({int limit = 50}) async {
+    final db = await instance.database;
+    return await db.query(
+      'telemetry_logs',
+      orderBy: 'timestamp ASC',
+      limit: limit,
+    );
+  }
+
+  Future<bool> hasDescendants(String nodeId) async {
+    final db = await instance.database;
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as child_count FROM layout_manifest WHERE screen_uuid = ?',
+      [nodeId]
+    );
+    final count = (result.isNotEmpty ? result.first['child_count'] as int? : 0) ?? 0;
+    return count > 0;
+  }
+
+  Future<List<Map<String, dynamic>>> fetchGenericDrillDownData({
+    required String tableName,
+    required String filterColumn,
+    required String targetId,
+    String? criteriaType,
+  }) async {
+    final db = await instance.database;
+    
+    String whereClause = '$filterColumn = ?';
+    List<dynamic> whereArgs = [targetId];
+
+    // Dynamically append secondary filtering if a criteria type is provided
+    if (criteriaType != null && criteriaType.isNotEmpty) {
+      whereClause += ' AND category_type = ?';
+      whereArgs.add(criteriaType);
+    }
+
+    return await db.query(
+      tableName,
+      where: whereClause,
+      whereArgs: whereArgs,
+    );
   }
 
   Future<List<Map<String, dynamic>>> loadLayout(String screenUuid) async {

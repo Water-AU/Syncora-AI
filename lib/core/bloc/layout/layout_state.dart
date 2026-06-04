@@ -1,22 +1,25 @@
-import 'package:flutter/foundation.dart';
 import 'package:syncora_ai/core/layout/layout_manifest.dart';
+import 'layout_event.dart'; // Crucial missing link for DrillDownCriteria visibility
 
-@immutable
 class LayoutState {
-  final List<LayoutManifestItem> currentLayout;
+  final Map<AppScreen, List<LayoutManifestItem>> screenLayouts;
+  final Map<AppScreen, List<DrillDownCriteria>> activeDrillDownPaths;
   final bool isLoading;
 
   const LayoutState({
-    required this.currentLayout,
+    required this.screenLayouts,
+    this.activeDrillDownPaths = const {},
     this.isLoading = false,
   });
 
   LayoutState copyWith({
-    List<LayoutManifestItem>? currentLayout,
+    Map<AppScreen, List<LayoutManifestItem>>? screenLayouts,
+    Map<AppScreen, List<DrillDownCriteria>>? activeDrillDownPaths,
     bool? isLoading,
   }) {
     return LayoutState(
-      currentLayout: currentLayout ?? this.currentLayout,
+      screenLayouts: screenLayouts ?? this.screenLayouts,
+      activeDrillDownPaths: activeDrillDownPaths ?? this.activeDrillDownPaths,
       isLoading: isLoading ?? this.isLoading,
     );
   }

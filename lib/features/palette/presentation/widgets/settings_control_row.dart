@@ -13,7 +13,8 @@ import 'package:syncora_ai/core/theme/syncora_theme.dart';
 import 'package:syncora_ai/features/palette/presentation/widgets/glass_panel.dart';
 
 class SettingsControlRow extends StatefulWidget {
-  const SettingsControlRow({super.key});
+  final AppScreen activeScreen;
+  const SettingsControlRow({super.key, required this.activeScreen});
 
   @override
   State<SettingsControlRow> createState() => _SettingsControlRowState();
@@ -21,6 +22,7 @@ class SettingsControlRow extends StatefulWidget {
 
 class _SettingsControlRowState extends State<SettingsControlRow> {
   late AudienceProfile activeAudience;
+  final Map<String, LayoutManifestItem> _stagedLayouts = {};
 
   @override
   void didChangeDependencies() {
@@ -186,11 +188,16 @@ class _SettingsControlRowState extends State<SettingsControlRow> {
             
             return Column(
               children: defaultManifest.map((manifestItem) {
-                // Find where it currently lives or use fallback
-                final currentLayoutItem = state.currentLayout.firstWhere(
-                  (item) => item.id == manifestItem.id,
-                  orElse: () => manifestItem,
-                );
+                LayoutManifestItem? foundItem;
+                for (final layouts in state.screenLayouts.values) {
+                  try {
+                    foundItem = layouts.firstWhere((item) => item.id == manifestItem.id);
+                    break;
+                  } catch (_) {}
+                }
+                final baseLayoutItem = foundItem ?? manifestItem;
+                final currentLayoutItem = _stagedLayouts[manifestItem.id] ?? baseLayoutItem;
+                final hasUnsavedChanges = _stagedLayouts.containsKey(manifestItem.id);
                 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12.0),
@@ -215,11 +222,14 @@ class _SettingsControlRowState extends State<SettingsControlRow> {
                           }).toList(),
                           onChanged: (newScreen) {
                             if (newScreen != null) {
-                              context.read<LayoutBloc>().add(ShiftComponentLayout(
-                                objectUuid: manifestItem.id,
-                                newScreen: newScreen,
-                                newRowPosition: currentLayoutItem.rowPosition,
-                              ));
+                              setState(() {
+                                _stagedLayouts[manifestItem.id] = LayoutManifestItem(
+                                  id: manifestItem.id,
+                                  debugTag: manifestItem.debugTag,
+                                  targetScreen: newScreen,
+                                  rowPosition: currentLayoutItem.rowPosition,
+                                );
+                              });
                             }
                           },
                         ),
@@ -239,14 +249,36 @@ class _SettingsControlRowState extends State<SettingsControlRow> {
                           }),
                           onChanged: (newRow) {
                             if (newRow != null) {
-                              context.read<LayoutBloc>().add(ShiftComponentLayout(
-                                objectUuid: manifestItem.id,
-                                newScreen: currentLayoutItem.targetScreen,
-                                newRowPosition: newRow,
-                              ));
+                              setState(() {
+                                _stagedLayouts[manifestItem.id] = LayoutManifestItem(
+                                  id: manifestItem.id,
+                                  debugTag: manifestItem.debugTag,
+                                  targetScreen: currentLayoutItem.targetScreen,
+                                  rowPosition: newRow,
+                                );
+                              });
                             }
                           },
                         ),
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          Icons.check_circle_outline,
+                          color: hasUnsavedChanges 
+                              ? theme.primaryAccent 
+                              : theme.textPrimary.withValues(alpha: 0.3),
+                        ),
+                        tooltip: 'Commit Layout Shift',
+                        onPressed: hasUnsavedChanges ? () {
+                          final staged = _stagedLayouts[manifestItem.id]!;
+                          context.read<LayoutBloc>().add(ShiftComponentLayout(
+                            objectUuid: staged.id,
+                            newScreen: staged.targetScreen,
+                            newRowPosition: staged.rowPosition,
+                            currentScreen: widget.activeScreen,
+                          ));
+                          setState(() => _stagedLayouts.remove(manifestItem.id));
+                        } : null,
                       ),
                     ],
                   ),

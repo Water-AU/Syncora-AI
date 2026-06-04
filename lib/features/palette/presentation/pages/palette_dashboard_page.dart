@@ -14,12 +14,19 @@ import 'package:syncora_ai/core/audience/syncora_audience.dart';
 import 'package:syncora_ai/features/palette/presentation/widgets/settings_control_row.dart';
 import 'package:syncora_ai/features/palette/presentation/widgets/historical_analytics_panel.dart';
 import 'package:syncora_ai/features/palette/presentation/widgets/biometric_status_hub.dart';
+import 'package:syncora_ai/features/palette/presentation/widgets/activity_trend_timeline.dart';
+import 'package:syncora_ai/features/palette/presentation/widgets/nutrient_consumption_history.dart';
+import 'package:syncora_ai/features/palette/presentation/widgets/row_concertina_container.dart';
+import 'package:syncora_ai/features/palette/presentation/widgets/breadcrumb_navigator.dart';
+import 'package:syncora_ai/features/palette/presentation/widgets/generic_drill_down_detail_view.dart';
 
 class PaletteDashboardPage extends StatefulWidget {
+  final AppScreen activeScreen;
   final AudienceProfile initialAudience;
 
   const PaletteDashboardPage({
     super.key,
+    required this.activeScreen,
     this.initialAudience = AudienceProfile.whiteCollar,
   });
 
@@ -35,8 +42,16 @@ class _PaletteDashboardPageState extends State<PaletteDashboardPage> {
     super.initState();
     _activeAudience = widget.initialAudience;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<LayoutBloc>().add(LoadLayoutManifest(AppScreen.home));
+      context.read<LayoutBloc>().add(LoadLayoutManifest(widget.activeScreen));
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant PaletteDashboardPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.activeScreen != widget.activeScreen) {
+      context.read<LayoutBloc>().add(LoadLayoutManifest(widget.activeScreen));
+    }
   }
 
   @override
@@ -51,7 +66,7 @@ class _PaletteDashboardPageState extends State<PaletteDashboardPage> {
         child: Scaffold(
           backgroundColor: theme.baseBackground,
           appBar: AppBar(
-        title: const Text('Palette Dashboard Canvas'),
+        title: Text('${widget.activeScreen.name[0].toUpperCase()}${widget.activeScreen.name.substring(1)} Canvas'),
         actions: [
           PopupMenuButton<ThemeProfile>(
             onSelected: (profile) {
@@ -74,18 +89,47 @@ class _PaletteDashboardPageState extends State<PaletteDashboardPage> {
                 child: CircularProgressIndicator(color: theme.primaryAccent),
               );
             }
-            final homeWidgets = state.currentLayout;
+            
+            final activePath = state.activeDrillDownPaths[widget.activeScreen] ?? [];
+            if (activePath.isNotEmpty) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  BreadcrumbNavigator(activeScreen: widget.activeScreen),
+                  Expanded(
+                    child: GenericDrillDownDetailView(criteria: activePath.last),
+                  ),
+                ],
+              );
+            }
+
+            final homeWidgets = state.screenLayouts[widget.activeScreen] ?? [];
+            
+            final groupedWidgets = homeWidgets.fold<Map<int, List<LayoutManifestItem>>>(
+              {}, 
+              (map, item) {
+                (map[item.rowPosition] ??= []).add(item);
+                return map;
+              }
+            );
+            final distinctRows = groupedWidgets.keys.toList()..sort();
             
             return ListView.builder(
               padding: const EdgeInsets.all(16.0),
-              itemCount: homeWidgets.length,
+              itemCount: distinctRows.length,
               itemBuilder: (context, index) {
-                final item = homeWidgets[index];
+                final rowIndex = distinctRows[index];
+                final components = groupedWidgets[rowIndex]!;
+                
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (index > 0) const SizedBox(height: 24),
-                    _buildManifestComponent(item.id, index),
+                    RowConcertinaContainer(
+                      components: components,
+                      activeScreen: widget.activeScreen,
+                      componentBuilder: (item) => _buildManifestComponent(item, rowIndex),
+                    ),
                   ],
                 );
               },
@@ -98,15 +142,15 @@ class _PaletteDashboardPageState extends State<PaletteDashboardPage> {
     );
   }
 
-  Widget _buildManifestComponent(String id, int displayIndex) {
-    debugPrint('Resolving Layout Manifest Block -> ID: $id | Row Index: $displayIndex');
-    switch (id) {
+  Widget _buildManifestComponent(LayoutManifestItem item, int displayIndex) {
+    debugPrint('Resolving Layout Manifest Block -> ID: ${item.id} | Row Index: $displayIndex');
+    switch (item.id) {
       case 'c3d4e5f6-a7b8-9c0d-1e2f-3a4b5c6d7e8f':
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _SectionHeader(title: 'Row $displayIndex: Biometric Status Hub'),
-            const BiometricStatusHub(),
+            BiometricStatusHub(activeScreen: widget.activeScreen),
           ],
         );
       case 'e1b2c3d4-5e6f-7a8b-9c0d-1e2f3a4b5c6d':
@@ -114,11 +158,11 @@ class _PaletteDashboardPageState extends State<PaletteDashboardPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _SectionHeader(title: 'Row $displayIndex: Telemetry Gauge'),
-            const GlassPanel(
+            GlassPanel(
               child: SizedBox(
                 height: 220,
                 width: double.infinity,
-                child: ArcGauge(),
+                child: ArcGauge(activeScreen: widget.activeScreen),
               ),
             ),
           ],
@@ -136,7 +180,7 @@ class _PaletteDashboardPageState extends State<PaletteDashboardPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _SectionHeader(title: 'Row $displayIndex: System Administration & Control Settings'),
-            const SettingsControlRow(),
+            SettingsControlRow(activeScreen: widget.activeScreen),
           ],
         );
       case 'b2c3d4e5-f6a7-8b9c-0d1e-2f3a4b5c6d7e':
@@ -145,6 +189,22 @@ class _PaletteDashboardPageState extends State<PaletteDashboardPage> {
           children: [
             _SectionHeader(title: 'Row $displayIndex: Telemetry Trends & Historical Vault Analytics'),
             const HistoricalAnalyticsPanel(),
+          ],
+        );
+      case 'a2b3c4d5-e6f7-8a9b-0c1d-2e3f4a5b6c7d':
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _SectionHeader(title: 'Row $displayIndex: Activity Trend Timeline'),
+            ActivityTrendTimeline(component: item),
+          ],
+        );
+      case 'd5c4b3a2-f7e6-9b8a-1c0d-3e2f5a4b6c7d':
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _SectionHeader(title: 'Row $displayIndex: Nutrient Consumption History'),
+            NutrientConsumptionHistory(component: item),
           ],
         );
       default:

@@ -5,22 +5,39 @@ import 'package:syncora_ai/core/theme/syncora_theme.dart';
 import 'package:syncora_ai/core/bloc/telemetry/telemetry_bloc.dart';
 import 'package:syncora_ai/core/bloc/telemetry/telemetry_state.dart';
 import 'package:syncora_ai/features/palette/presentation/widgets/glass_panel.dart';
+import 'package:syncora_ai/core/interfaces/drill_down_provider.dart';
+import 'package:syncora_ai/core/bloc/layout/layout_event.dart';
+import 'package:syncora_ai/features/palette/presentation/widgets/generic_drill_down_wrapper.dart';
+import 'package:syncora_ai/core/layout/layout_manifest.dart';
 
-class BiometricStatusHub extends StatelessWidget {
-  const BiometricStatusHub({super.key});
+class BiometricStatusHub extends StatelessWidget implements DrillDownProvider {
+  final AppScreen activeScreen;
+  const BiometricStatusHub({super.key, required this.activeScreen});
+
+  @override
+  DrillDownCriteria get drillDownConfig => const DrillDownCriteria(
+    tableName: 'biometric_records',
+    filterColumn: 'session_id',
+    targetId: 'biometric_hub_root',
+    criteriaType: 'vital_signs',
+  );
 
   @override
   Widget build(BuildContext context) {
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(child: _buildHeartRateTile()),
-          const SizedBox(width: 16),
-          Expanded(child: _buildMetricTile()),
-          const SizedBox(width: 16),
-          const Expanded(child: SessionStopwatchTile()),
-        ],
+    return GenericDrillDownWrapper(
+      activeScreen: activeScreen,
+      provider: this,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(child: _buildHeartRateTile()),
+            const SizedBox(width: 16),
+            Expanded(child: _buildMetricTile()),
+            const SizedBox(width: 16),
+            const Expanded(child: SessionStopwatchTile()),
+          ],
+        ),
       ),
     );
   }

@@ -4,9 +4,22 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:syncora_ai/core/theme/syncora_theme.dart';
 import 'package:syncora_ai/core/bloc/telemetry/telemetry_bloc.dart';
 import 'package:syncora_ai/core/bloc/telemetry/telemetry_state.dart';
+import 'package:syncora_ai/core/interfaces/drill_down_provider.dart';
+import 'package:syncora_ai/core/bloc/layout/layout_event.dart';
+import 'package:syncora_ai/features/palette/presentation/widgets/generic_drill_down_wrapper.dart';
+import 'package:syncora_ai/core/layout/layout_manifest.dart';
 
-class ArcGauge extends StatefulWidget {
-  const ArcGauge({super.key});
+class ArcGauge extends StatefulWidget implements DrillDownProvider {
+  final AppScreen activeScreen;
+  const ArcGauge({super.key, required this.activeScreen});
+
+  @override
+  DrillDownCriteria get drillDownConfig => const DrillDownCriteria(
+    tableName: 'telemetry_logs',
+    filterColumn: 'metric_category',
+    targetId: 'arc_gauge_root',
+    criteriaType: 'voltage_amperage',
+  );
 
   @override
   State<ArcGauge> createState() => _ArcGaugeState();
@@ -53,8 +66,11 @@ class _ArcGaugeState extends State<ArcGauge> with SingleTickerProviderStateMixin
   Widget build(BuildContext context) {
     final theme = SyncoraTheme.of(context);
     
-    return BlocBuilder<TelemetryBloc, TelemetryState>(
-      builder: (context, state) {
+    return GenericDrillDownWrapper(
+      activeScreen: widget.activeScreen,
+      provider: widget,
+      child: BlocBuilder<TelemetryBloc, TelemetryState>(
+        builder: (context, state) {
         // Only trigger animation retween if the data actually changed
         if (_animation.value != state.primaryMetricValue) {
           _animation = Tween<double>(begin: _animation.value, end: state.primaryMetricValue).animate(
@@ -90,6 +106,7 @@ class _ArcGaugeState extends State<ArcGauge> with SingleTickerProviderStateMixin
           },
         );
       },
+    ),
     );
   }
 }

@@ -9,7 +9,7 @@ import 'core/bloc/telemetry/telemetry_event.dart';
 import 'core/theme/syncora_theme.dart';
 import 'core/audience/syncora_audience.dart';
 import 'core/bloc/layout/layout_bloc.dart';
-import 'features/palette/presentation/pages/palette_dashboard_page.dart';
+import 'features/shell/presentation/pages/app_shell.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -67,7 +67,7 @@ class SyncoraApp extends StatelessWidget {
           return MaterialApp(
             title: 'Syncora AI',
             theme: state.theme.themeData,
-            home: PaletteDashboardPage(initialAudience: initialAudience),
+            home: AppShell(initialAudience: initialAudience),
             debugShowCheckedModeBanner: false,
           );
         },
